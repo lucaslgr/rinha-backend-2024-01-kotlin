@@ -1,32 +1,49 @@
-= Rinha-back-end-2024-01
+= Rinha de Backend 2024 Q1
 
 image:https://img.shields.io/badge/vert.x-4.5.3-purple.svg[link="https://vertx.io"]
 
-This application was generated using http://start.vertx.io
+This application is a simple implementation to the https://github.com/zanfranceschi/rinha-de-backend-2024-q1/tree/main?tab=readme-ov-file[rinha-de-backend-2024-q1] challenge using Kotlin and Vert.x web framework.
 
-== Building
+* #PS:# This implementation doesn't consider some good practices and patterns like clean code. It's focused in reach the requirements and pass in the stress test with the best performance possible.
 
-To launch your tests:
-```
-./mvnw clean test
-```
+== Tech Stack
+* Kotlin
+* Vert.x Framework
+* Postgres
+* Nginx Proxy
+* Docker
 
-To package your application:
-```
-./mvnw clean package
-```
+== Running it locally
 
-To run your application:
-```
-./mvnw clean compile exec:java
-```
+[source,bash]
+----
+git clone git@github.com:lucaslgr/rinha-backend-2024-01-kotlin.git
+cd rinha-backend-2024-01-kotlin
+docker compose up -d
+----
 
-== Help
+== Results
+image::assets/result-01.png[]
 
-* https://vertx.io/docs/[Vert.x Documentation]
-* https://stackoverflow.com/questions/tagged/vert.x?sort=newest&pageSize=15[Vert.x Stack Overflow]
-* https://groups.google.com/forum/?fromgroups#!forum/vertx[Vert.x User Group]
-* https://discord.gg/6ry7aqPWXy[Vert.x Discord]
-* https://gitter.im/eclipse-vertx/vertx-users[Vert.x Gitter]
+== Running the stress test
+[source, bash]
+----
+# Downloading gatling
+curl -o gatling.zip https://repo1.maven.org/maven2/io/gatling/highcharts/gatling-charts-highcharts-bundle/3.10.3/gatling-charts-highcharts-bundle-3.10.3-bundle.zip
+unzip gatling.zip
+rm -Rf gatling.zip
+mkdir -p ~/gatling/3.10.3
+sudo mv gatling-charts-highcharts-bundle-3.10.3-bundle ~/gatling/3.10.3/
+export GATLING_HOME=~/gatling/3.10.3
+
+# Running the stress test
+git clone git@github.com:zanfranceschi/rinha-de-backend-2024-q1.git
+./executar-teste-local.sh
+----
+
+== Social Networks
+* https://www.youtube.com/channel/UCyvw5MVEOueAyE2PqNXVkYw[Youtube]
+* https://www.linkedin.com/in/lucas-guimar%C3%A3es-rocha/[Linkedin]
+* https://github.com/lucaslgr[Github]
 
 
