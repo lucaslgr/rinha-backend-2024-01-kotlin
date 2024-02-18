@@ -23,7 +23,7 @@ class MainVerticle : AbstractVerticle() {
   override fun start(startPromise: Promise<Void>) {
     val pgConnectOptions = PgConnectOptions()
       .setPort(5432)
-      .setHost("localhost")
+      .setHost("db")
       .setDatabase("rinha")
       .setUser("root")
       .setPassword("rinha")
@@ -34,13 +34,13 @@ class MainVerticle : AbstractVerticle() {
       .also {
         it.route().handler(BodyHandler.create())
         it.post("/clientes/:id/transacoes").handler(this::createTransaction)
-        it.get("/clientes/:id/transacoes").handler(this::getTransactions)
+        it.get("/clientes/:id/extrato").handler(this::getTransactions)
       }
 
     vertx
       .createHttpServer()
       .requestHandler(router)
-      .listen(8080) { http ->
+      .listen(8888) { http ->
         if (http.succeeded()) {
           startPromise.complete()
           println("HTTP server started on port 8888")
@@ -65,7 +65,7 @@ class MainVerticle : AbstractVerticle() {
           description = it.getString("descricao")
         }
     } catch (e: Exception) {
-      context.fail(400, e)
+      context.fail(422, e)
       return
     }
 
@@ -148,7 +148,7 @@ class MainVerticle : AbstractVerticle() {
     try {
       clientId = context.pathParam("id").toInt()
     } catch (e: Exception) {
-      context.fail(400, e)
+      context.fail(422, e)
       return
     }
 
