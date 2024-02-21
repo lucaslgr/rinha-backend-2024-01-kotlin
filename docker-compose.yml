@@ -6,6 +6,8 @@ services:
     hostname: api01
     depends_on:
       - db
+    environment:
+      - DB_HOST=db
     deploy:
       resources:
         limits:
@@ -16,6 +18,8 @@ services:
     hostname: api02
     depends_on:
       - db
+    environment:
+        - DB_HOST=db
     deploy:
       resources:
         limits:
