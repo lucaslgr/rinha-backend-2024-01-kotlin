@@ -6,29 +6,28 @@ import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.BodyHandler
 import io.vertx.pgclient.PgConnectOptions
-import io.vertx.pgclient.PgPool
+import io.vertx.sqlclient.Pool
 import io.vertx.sqlclient.PoolOptions
-import io.vertx.sqlclient.SqlClient
 import io.vertx.sqlclient.Tuple
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import kotlin.math.abs
 
 
 class MainVerticle : AbstractVerticle() {
 
-  private lateinit var dbClient: SqlClient
+  private lateinit var dbClient: Pool
 
   override fun start(startPromise: Promise<Void>) {
     val pgConnectOptions = PgConnectOptions()
       .setPort(5432)
-      .setHost("db")
+      .setHost(System.getenv("DB_HOST") ?: "localhost")
       .setDatabase("rinha")
       .setUser("root")
       .setPassword("rinha")
     val poolOptions = PoolOptions().setMaxSize(4)
-    dbClient = PgPool.client(vertx, pgConnectOptions, poolOptions)
+
+    dbClient = Pool.pool(vertx, pgConnectOptions, poolOptions)
 
     val router = Router.router(vertx)
       .also {
@@ -60,7 +59,12 @@ class MainVerticle : AbstractVerticle() {
       clientId = context.pathParam("id").toInt()
       context.body().asJsonObject()
         .also {
-          amount = it.getInteger("valor")
+          val amountStr =  it.getString("valor")
+          if (amountStr.contains(".")) {
+            context.fail(422)
+            return
+          }
+          amount = amountStr.toInt()
           type = it.getString("tipo")
           description = it.getString("descricao")
         }
@@ -69,22 +73,17 @@ class MainVerticle : AbstractVerticle() {
       return
     }
 
-    if (amount < 0) {
+    if (amount <= 0 ||
+        (type != "c" && type != "d") ||
+        description.trim().isEmpty() ||
+        description.length > 10) {
       context.fail(422)
       return
     }
 
-    if (type != "c" && type != "d") {
-      context.fail(422)
-      return
-    }
-
-    if (description.length > 10) {
-      context.fail(422)
-      return
-    }
-
-    dbClient.preparedQuery("SELECT * FROM clients WHERE id = $1")
+    //Getting the current client data
+    dbClient.withTransaction { tx ->
+      tx.preparedQuery("SELECT * FROM clients WHERE id = $1 FOR UPDATE")
       .execute(Tuple.of(clientId))
       .onSuccess {
         if (it.size() == 0) {
@@ -99,8 +98,7 @@ class MainVerticle : AbstractVerticle() {
         var currentBalance = 0
         if (type == "d") {
           currentBalance = balance - amount
-
-          if (abs(currentBalance) > accountLimit) {
+          if (currentBalance < - accountLimit) {
             context.fail(422)
             return@onSuccess
           }
@@ -110,36 +108,32 @@ class MainVerticle : AbstractVerticle() {
           currentBalance = balance + amount
         }
 
-        //Insert data
-        dbClient
-          .preparedQuery(
-                """
-            INSERT INTO transactions(amount, type, description, client_id)
-            VALUES($1, $2, $3, $4)
-          """
-          )
-            .execute(Tuple.of(amount, type, description, clientId))
-            .onSuccess {
-              dbClient.preparedQuery("UPDATE clients SET balance = $1 WHERE id = $2")
-                .execute(Tuple.of(currentBalance, clientId))
-                .onSuccess {
-                  context.json(mapOf("limite" to accountLimit, "saldo" to currentBalance))
-                  return@onSuccess
-                }
-                .onFailure {
-                  context.fail(422)
-                  return@onFailure
-                }
-            }
-            .onFailure {
-              context.fail(422)
-              return@onFailure
-            }
+        //Update and insert
+        tx.preparedQuery("UPDATE clients SET balance = $1 WHERE id = $2")
+          .execute(Tuple.of(currentBalance, clientId))
+          .onSuccess {
+
+            tx.preparedQuery("INSERT INTO transactions(amount, type, description, client_id) VALUES($1, $2, $3, $4)")
+              .execute(Tuple.of(amount, type, description, clientId))
+              .onSuccess {
+                context.json(mapOf("limite" to accountLimit, "saldo" to currentBalance))
+                return@onSuccess
+              }
+              .onFailure {
+                context.fail(422)
+                return@onFailure
+              }
+          }
+          .onFailure {
+            context.fail(422)
+            return@onFailure
+          }
       }
       .onFailure {
         context.fail(422)
         return@onFailure
       }
+    }
   }
 
   private fun getTransactions(context: RoutingContext) {
@@ -152,6 +146,7 @@ class MainVerticle : AbstractVerticle() {
       return
     }
 
+    //Getting the current client data
     dbClient.preparedQuery("SELECT * FROM clients WHERE id = $1")
       .execute(Tuple.of(clientId))
       .onSuccess {
@@ -171,6 +166,7 @@ class MainVerticle : AbstractVerticle() {
           "limite" to accountLimit
         )
 
+        //Getting the last 10 transactions
         dbClient.preparedQuery("SELECT * FROM transactions WHERE client_id = $1 ORDER BY created_at DESC LIMIT 10")
           .execute(Tuple.of(clientId))
           .onSuccess {
