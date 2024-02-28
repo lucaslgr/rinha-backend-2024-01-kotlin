@@ -4,7 +4,9 @@ image:https://img.shields.io/badge/vert.x-4.5.3-purple.svg[link="https://vertx.i
 
 This application is a simple implementation to the https://github.com/zanfranceschi/rinha-de-backend-2024-q1/tree/main?tab=readme-ov-file[rinha-de-backend-2024-q1] challenge using Kotlin and Vert.x web framework.
 
-* #PS:# This implementation doesn't consider some good practices and patterns like clean code. It's focused in reach the requirements and pass in the stress test with the best performance possible.
+The main difference in this version is that it uses #Advisory Locks# to avoid the concurrency issues of the challenge.
+
+* *PS:* This implementation doesn't consider some good practices and patterns like clean code. It's focused in reach the requirements and pass in the stress test with the best performance possible.
 
 == Tech Stack
 * Kotlin
@@ -23,7 +25,7 @@ docker compose up -d
 ----
 
 == Results
-image::assets/result-01.png[]
+The results of the stress test are available in the #results# folder.
 
 == Running the stress test
 [source, bash]
@@ -40,6 +42,8 @@ export GATLING_HOME=~/gatling/3.10.3
 git clone git@github.com:zanfranceschi/rinha-de-backend-2024-q1.git
 ./executar-teste-local.sh
 ----
+== TO-DO:
+* [ ] Load clientsAccountLimits data by a select query in database that will be executed just once.
 
 == Social Networks
 * https://www.youtube.com/channel/UCyvw5MVEOueAyE2PqNXVkYw[Youtube]
