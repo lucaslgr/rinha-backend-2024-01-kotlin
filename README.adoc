@@ -6,6 +6,17 @@ This application is a simple implementation to the https://github.com/zanfrances
 
 * #PS:# This implementation doesn't consider some good practices and patterns like clean code. It's focused in reach the requirements and pass in the stress test with the best performance possible.
 
+== Another implementations
+In each branch I'll find another implementations to solve the same problem using different approaches.
+
+* `v1`:
+** Use of `Advisory Locks` to avoid the concurrency issues of the challenge.
+** A cache memory of clients id and account limits data to avoid 1 select query.
+** Two tables were created, `clients` and `transactions`, and the transaction table keeps the client's `balance` data. The last transaction will hold the current client's `balance` data.
+* `v2`:
+** Use of `Pessimistic Locking` to avoid the concurrency issues of the challenge.
+** Two tables were created, `clients` and `transactions` and each insert in transaction table is done together with an update in the client's `balance` data.
+
 == Tech Stack
 * Kotlin
 * Vert.x Framework
