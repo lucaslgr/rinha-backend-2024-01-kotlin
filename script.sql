@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS clients (
   id SERIAL PRIMARY KEY,
-  account_limit INT NOT NULL,
-  balance INT NOT NULL DEFAULT 0
+  account_limit INT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS transactions (
@@ -10,6 +9,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   type CHAR(1) NOT NULL,
   description VARCHAR(10) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
+  balance INT NOT NULL DEFAULT 0,
   client_id INT NOT NULL REFERENCES clients(id)
 );
 
