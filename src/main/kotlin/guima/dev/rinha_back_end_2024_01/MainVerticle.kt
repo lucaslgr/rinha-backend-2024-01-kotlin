@@ -1,6 +1,7 @@
 package guima.dev.rinha_back_end_2024_01
 
 import io.vertx.core.AbstractVerticle
+import io.vertx.core.Future
 import io.vertx.core.Promise
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
@@ -17,6 +18,16 @@ import java.time.format.DateTimeFormatter
 class MainVerticle : AbstractVerticle() {
 
   private lateinit var dbClient: Pool
+
+  companion object {
+    var clientsAccountLimits: HashMap<Int, Int> = hashMapOf(
+      1 to 100000,
+      2 to 80000,
+      3 to 1000000,
+      4 to 10000000,
+      5 to 500000
+    )
+  }
 
   override fun start(startPromise: Promise<Void>) {
     val pgConnectOptions = PgConnectOptions()
@@ -81,58 +92,49 @@ class MainVerticle : AbstractVerticle() {
       return
     }
 
+    val accountLimit = clientsAccountLimits[clientId]
+    if (accountLimit == null) {
+      context.fail(404)
+      return
+    }
+
     //Getting the current client data
     dbClient.withTransaction { tx ->
-      tx.preparedQuery("SELECT * FROM clients WHERE id = $1 FOR UPDATE")
-      .execute(Tuple.of(clientId))
-      .onSuccess {
-        if (it.size() == 0) {
-          context.fail(404)
+      tx.query("SELECT pg_advisory_xact_lock($clientId)")
+        .execute()
+        .compose {
+          tx.preparedQuery("SELECT balance FROM transactions WHERE client_id = $1 ORDER BY id DESC LIMIT 1")
+            .execute(Tuple.of(clientId))
+        }
+        .compose {
+          var balance = 0
+          if (it.size() > 0) {
+            balance = it.first().getInteger("balance")
+          }
+
+          var currentBalance = 0
+          if (type == "d") {
+            currentBalance = balance - amount
+            if (currentBalance < - accountLimit) {
+              context.fail(422)
+              return@compose Future.failedFuture("Insufficient funds")
+            }
+          } else {
+            currentBalance = balance + amount
+          }
+
+          tx.preparedQuery("INSERT INTO transactions(amount, type, description, balance, client_id) VALUES($1, $2, $3, $4, $5)")
+            .execute(Tuple.of(amount, type, description, currentBalance, clientId))
+            .map { currentBalance }
+        }
+        .onSuccess { currentBalance ->
+          context.json(mapOf("limite" to accountLimit, "saldo" to currentBalance))
           return@onSuccess
         }
-
-        val client = it.iterator().next()
-        val accountLimit = client.getInteger("account_limit")
-        val balance = client.getInteger("balance")
-
-        var currentBalance = 0
-        if (type == "d") {
-          currentBalance = balance - amount
-          if (currentBalance < - accountLimit) {
-            context.fail(422)
-            return@onSuccess
-          }
+        .onFailure {
+          context.fail(422, it)
+          return@onFailure
         }
-
-        if (type == "c") {
-          currentBalance = balance + amount
-        }
-
-        //Update and insert
-        tx.preparedQuery("UPDATE clients SET balance = $1 WHERE id = $2")
-          .execute(Tuple.of(currentBalance, clientId))
-          .onSuccess {
-
-            tx.preparedQuery("INSERT INTO transactions(amount, type, description, client_id) VALUES($1, $2, $3, $4)")
-              .execute(Tuple.of(amount, type, description, clientId))
-              .onSuccess {
-                context.json(mapOf("limite" to accountLimit, "saldo" to currentBalance))
-                return@onSuccess
-              }
-              .onFailure {
-                context.fail(422)
-                return@onFailure
-              }
-          }
-          .onFailure {
-            context.fail(422)
-            return@onFailure
-          }
-      }
-      .onFailure {
-        context.fail(422)
-        return@onFailure
-      }
     }
   }
 
@@ -146,54 +148,46 @@ class MainVerticle : AbstractVerticle() {
       return
     }
 
-    //Getting the current client data
-    dbClient.preparedQuery("SELECT * FROM clients WHERE id = $1")
+    val accountLimit = clientsAccountLimits[clientId]
+    if (accountLimit == null) {
+      context.fail(404)
+      return
+    }
+
+    //Getting the last 10 transactions
+    dbClient.preparedQuery("SELECT amount, type, description, created_at, balance FROM transactions WHERE client_id = $1 ORDER BY created_at DESC LIMIT 10")
       .execute(Tuple.of(clientId))
       .onSuccess {
-        if (it.size() == 0) {
-          context.fail(404)
-          return@onSuccess
+        val lastTenTransactions: MutableList<Map<String, Any>> = mutableListOf()
+
+        var currentBalance = 0
+        if (it.size() > 0) {
+          currentBalance = it.first().getInteger("balance")
         }
-
-        val client = it.iterator().next()
-        val accountLimit = client.getInteger("account_limit")
-        val balance = client.getInteger("balance")
-        val formattedTime = formatInstantToUTC(Instant.now())
-
         val balanceData = mapOf(
-          "total" to balance,
-          "data_extrato" to formattedTime,
+          "total" to currentBalance,
+          "data_extrato" to formatInstantToUTC(Instant.now()),
           "limite" to accountLimit
         )
 
-        //Getting the last 10 transactions
-        dbClient.preparedQuery("SELECT * FROM transactions WHERE client_id = $1 ORDER BY created_at DESC LIMIT 10")
-          .execute(Tuple.of(clientId))
-          .onSuccess {
-            val lastTenTransactions: MutableList<Map<String, Any>> = mutableListOf()
-            it.iterator().forEach {
-              val amount = it.getInteger("amount")
-              val type = it.getString("type")
-              val description = it.getString("description")
-              val createdAt = formatInstantToUTC(it.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC))
-              lastTenTransactions.addLast(mapOf(
-                "valor" to amount,
-                "tipo" to type,
-                "descricao" to description,
-                "realizada_em" to createdAt
-              ))
-            }
+        it.forEach {
+          val amount = it.getInteger("amount")
+          val type = it.getString("type")
+          val description = it.getString("description")
+          val createdAt = formatInstantToUTC(it.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC))
+          lastTenTransactions.addLast(mapOf(
+            "valor" to amount,
+            "tipo" to type,
+            "descricao" to description,
+            "realizada_em" to createdAt
+          ))
+        }
 
-            context.json(mapOf(
-              "saldo" to balanceData,
-              "ultimas_transacoes" to lastTenTransactions
-            ))
-            return@onSuccess
-          }
-          .onFailure {
-            context.fail(422)
-            return@onFailure
-          }
+        context.json(mapOf(
+          "saldo" to balanceData,
+          "ultimas_transacoes" to lastTenTransactions
+        ))
+        return@onSuccess
       }
       .onFailure {
         context.fail(422)
