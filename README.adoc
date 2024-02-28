@@ -4,7 +4,7 @@ image:https://img.shields.io/badge/vert.x-4.5.3-purple.svg[link="https://vertx.i
 
 This application is a simple implementation to the https://github.com/zanfranceschi/rinha-de-backend-2024-q1/tree/main?tab=readme-ov-file[rinha-de-backend-2024-q1] challenge using Kotlin and Vert.x web framework.
 
-The *main difference* in this version is that it uses `Advisory Locks` to avoid the concurrency issues of the challenge.
+The *main difference* in this version is that it uses `Pessimistic Locking` to avoid the concurrency issues of the challenge.
 
 * *PS:* This implementation doesn't consider some good practices and patterns like clean code. It's focused in reach the requirements and pass in the stress test with the best performance possible.
 
