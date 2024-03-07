@@ -5,8 +5,7 @@ COPY mvnw mvnw.cmd ./
 COPY .mvn .mvn
 COPY pom.xml .
 COPY src ./src
-RUN chmod +x ./mvnw && ./mvnw package -Dmaven.test.skip=true
-RUN ls /app/target/
+RUN chmod +x ./mvnw && ./mvnw package -DskipTests
 
 
 ##### Run stage
