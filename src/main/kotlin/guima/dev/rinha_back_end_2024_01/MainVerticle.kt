@@ -1,6 +1,7 @@
 package guima.dev.rinha_back_end_2024_01
 
 import io.vertx.core.AbstractVerticle
+import io.vertx.core.Future
 import io.vertx.core.Promise
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
@@ -85,13 +86,13 @@ class MainVerticle : AbstractVerticle() {
     dbClient.withTransaction { tx ->
       tx.preparedQuery("SELECT * FROM clients WHERE id = $1 FOR UPDATE")
       .execute(Tuple.of(clientId))
-      .onSuccess {
-        if (it.size() == 0) {
+      .compose { clientResult ->
+        if (clientResult.size() == 0) {
           context.fail(404)
-          return@onSuccess
+          return@compose Future.failedFuture("Client doesn't exists")
         }
 
-        val client = it.iterator().next()
+        val client = clientResult.iterator().next()
         val accountLimit = client.getInteger("account_limit")
         val balance = client.getInteger("balance")
 
@@ -100,7 +101,7 @@ class MainVerticle : AbstractVerticle() {
           currentBalance = balance - amount
           if (currentBalance < - accountLimit) {
             context.fail(422)
-            return@onSuccess
+            return@compose Future.failedFuture("Current balance is not enough")
           }
         }
 
@@ -111,23 +112,16 @@ class MainVerticle : AbstractVerticle() {
         //Update and insert
         tx.preparedQuery("UPDATE clients SET balance = $1 WHERE id = $2")
           .execute(Tuple.of(currentBalance, clientId))
-          .onSuccess {
-
-            tx.preparedQuery("INSERT INTO transactions(amount, type, description, client_id) VALUES($1, $2, $3, $4)")
-              .execute(Tuple.of(amount, type, description, clientId))
-              .onSuccess {
-                context.json(mapOf("limite" to accountLimit, "saldo" to currentBalance))
-                return@onSuccess
-              }
-              .onFailure {
-                context.fail(422)
-                return@onFailure
-              }
-          }
-          .onFailure {
-            context.fail(422)
-            return@onFailure
-          }
+          .compose { Future.succeededFuture(mapOf("limite" to accountLimit, "saldo" to currentBalance)) }
+      }
+      .compose { mapResponse ->
+        tx.preparedQuery("INSERT INTO transactions(amount, type, description, client_id) VALUES($1, $2, $3, $4)")
+          .execute(Tuple.of(amount, type, description, clientId))
+          .compose { Future.succeededFuture(mapResponse) }
+      }
+      .onSuccess { mapResponse ->
+        context.json(mapResponse)
+        return@onSuccess
       }
       .onFailure {
         context.fail(422)
@@ -149,13 +143,13 @@ class MainVerticle : AbstractVerticle() {
     //Getting the current client data
     dbClient.preparedQuery("SELECT * FROM clients WHERE id = $1")
       .execute(Tuple.of(clientId))
-      .onSuccess {
-        if (it.size() == 0) {
+      .compose { clientResult ->
+        if (clientResult.size() == 0) {
           context.fail(404)
-          return@onSuccess
+          return@compose Future.failedFuture("Client doesn't exists")
         }
 
-        val client = it.iterator().next()
+        val client = clientResult.iterator().next()
         val accountLimit = client.getInteger("account_limit")
         val balance = client.getInteger("balance")
         val formattedTime = formatInstantToUTC(Instant.now())
@@ -169,31 +163,26 @@ class MainVerticle : AbstractVerticle() {
         //Getting the last 10 transactions
         dbClient.preparedQuery("SELECT * FROM transactions WHERE client_id = $1 ORDER BY created_at DESC LIMIT 10")
           .execute(Tuple.of(clientId))
-          .onSuccess {
-            val lastTenTransactions: MutableList<Map<String, Any>> = mutableListOf()
-            it.iterator().forEach {
-              val amount = it.getInteger("amount")
-              val type = it.getString("type")
-              val description = it.getString("description")
-              val createdAt = formatInstantToUTC(it.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC))
-              lastTenTransactions.addLast(mapOf(
-                "valor" to amount,
-                "tipo" to type,
-                "descricao" to description,
-                "realizada_em" to createdAt
-              ))
-            }
-
-            context.json(mapOf(
-              "saldo" to balanceData,
-              "ultimas_transacoes" to lastTenTransactions
-            ))
-            return@onSuccess
-          }
-          .onFailure {
-            context.fail(422)
-            return@onFailure
-          }
+          .compose { transactionsResult -> Future.succeededFuture(Pair(balanceData, transactionsResult)) }
+      }
+      .onSuccess { (balanceData, transactionsResult) ->
+        val lastTenTransactions: MutableList<Map<String, Any>> = mutableListOf()
+        transactionsResult.iterator().forEach {
+          val amount = it.getInteger("amount")
+          val type = it.getString("type")
+          val description = it.getString("description")
+          val createdAt = formatInstantToUTC(it.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC))
+          lastTenTransactions.addLast(mapOf(
+            "valor" to amount,
+            "tipo" to type,
+            "descricao" to description,
+            "realizada_em" to createdAt
+          ))
+        }
+        context.json(mapOf(
+          "saldo" to balanceData,
+          "ultimas_transacoes" to lastTenTransactions
+        ))
       }
       .onFailure {
         context.fail(422)
