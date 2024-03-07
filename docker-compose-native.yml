@@ -1,0 +1,62 @@
+version: "3.8"
+
+services:
+  api01:
+    build:
+      context: .
+      dockerfile: "Dockerfile.native"
+    hostname: api01
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+    deploy:
+      resources:
+        limits:
+          cpus: "0.15"
+          memory: "120MB"
+  api02:
+    build:
+      context: .
+      dockerfile: "Dockerfile.native"
+    hostname: api02
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+    deploy:
+      resources:
+        limits:
+          cpus: "0.15"
+          memory: "120MB"
+  db:
+    image: postgres:16
+    volumes:
+      - ./script.sql:/docker-entrypoint-initdb.d/script.sql
+    command: postgres -c log_min_messages=FATAL -c max_connections=50 -c shared_buffers=128MB -c fsync=off -c synchronous_commit=off -c checkpoint_timeout=1d -c full_page_writes=false
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: rinha
+      POSTGRES_DB: rinha
+    ports:
+      - "5432:5432"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: "250MB"
+  nginx:
+    image: nginx
+    hostname: nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api01
+      - api02
+    ports:
+      - "9999:9999"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.20"
+          memory: "60MB"

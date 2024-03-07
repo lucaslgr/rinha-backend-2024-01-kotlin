@@ -13,6 +13,7 @@
 
     <kotlin.version>1.9.22</kotlin.version>
 
+    <graal.plugin.version>0.9.8</graal.plugin.version>
     <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
     <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
     <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
@@ -150,5 +151,38 @@
     </plugins>
   </build>
 
-
+  <profiles>
+    <profile>
+      <id>native-image</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.graalvm.buildtools</groupId>
+            <artifactId>native-maven-plugin</artifactId>
+            <version>${graal.plugin.version}</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>build</goal>
+                </goals>
+                <phase>package</phase>
+              </execution>
+            </executions>
+            <configuration>
+              <imageName>${project.name}</imageName>
+              <mainClass>io.vertx.core.Launcher</mainClass>
+              <buildArgs combine.children="append">
+                <buildArg>--no-fallback</buildArg>
+                <buildArg>--native-image-info</buildArg>
+                <buildArg>--verbose</buildArg>
+                <buildArg>-H:+PrintClassInitialization</buildArg>
+                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
+              </buildArgs>
+<!--              <buildArgs>-H:+PrintClassInitialization -H:+ReportExceptionStackTraces</buildArgs>-->
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

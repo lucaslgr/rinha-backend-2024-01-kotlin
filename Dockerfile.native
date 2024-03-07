@@ -1,0 +1,13 @@
+##### Build stage
+FROM ghcr.io/graalvm/native-image-community:21 as builder
+WORKDIR /app
+ADD mvnw mvnw.cmd pom.xml /app/
+COPY .mvn /app/.mvn
+ADD src /app/src
+RUN chmod +x ./mvnw && ./mvnw package -Pnative-image -DskipTests
+
+##### Run stage
+FROM debian:12
+WORKDIR /app
+COPY --from=builder /app/target/rinha-back-end-2024-01 /app/rinha-back-end-2024-01
+ENTRYPOINT ["./rinha-back-end-2024-01"]
