@@ -16,6 +16,8 @@ In each branch I'll find another implementations to solve the same problem using
 * `v2`:
 ** Use of `Pessimistic Locking` to avoid the concurrency issues of the challenge.
 ** Two tables were created, `clients` and `transactions` and each insert in transaction table is done together with an update in the client's `balance` data.
+* `v3`:
+** Same of `v2` but using GraalVM to compile the application to a native image.
 
 == Tech Stack
 * Kotlin
