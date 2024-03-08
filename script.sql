@@ -1,13 +1,13 @@
 DROP TABLE IF EXISTS transactions CASCADE;
 DROP TABLE IF EXISTS clients CASCADE;
 
-CREATE TABLE IF NOT EXISTS clients (
+CREATE UNLOGGED TABLE IF NOT EXISTS clients (
   id SERIAL PRIMARY KEY,
   account_limit INT NOT NULL,
   balance INT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS transactions (
+CREATE UNLOGGED TABLE IF NOT EXISTS transactions (
   id SERIAL PRIMARY KEY,
   amount INT NOT NULL,
   type CHAR(1) NOT NULL,
@@ -16,8 +16,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   client_id INT NOT NULL REFERENCES clients(id)
 );
 
-CREATE INDEX transactions_client_id_index ON transactions(client_id);
-CREATE INDEX transactions_created_at_index ON transactions(created_at DESC);
+CREATE INDEX transactions_created_at_index ON transactions(client_id, created_at DESC);
 
 DO $$
   BEGIN
