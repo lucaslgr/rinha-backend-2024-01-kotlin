@@ -17,7 +17,9 @@ In each branch I'll find another implementations to solve the same problem using
 ** Use of `Pessimistic Locking` to avoid the concurrency issues of the challenge.
 ** Two tables were created, `clients` and `transactions` and each insert in transaction table is done together with an update in the client's `balance` data.
 * `v3`:
-** Same of `v2` but using GraalVM to compile the application to a native image.
+** Same of `v2` but using *GraalVM* to compile the application to a native image.
+* `v4`:
+** This version has some performance configuration for *NGINX* and *PostgreSQL*. But it's still handling the logic and validations in the application layer and using the same database schema of the previous versions.
 
 == Tech Stack
 * Kotlin
