@@ -38,13 +38,14 @@ services:
     hostname: db
     network_mode: host
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - ./postgresql.conf:/docker-entrypoint-initdb.d/postgresql.conf
       - ./script.sql:/docker-entrypoint-initdb.d/script.sql
+      - pg_db_volume:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: rinha
       POSTGRES_DB: rinha
-    command: postgres -c log_min_messages=FATAL -c max_connections=50 -c shared_buffers=128MB -c fsync=off -c synchronous_commit=off -c checkpoint_timeout=1d -c full_page_writes=false
+    command: [ "postgres", "-c", "config_file=/docker-entrypoint-initdb.d/postgresql.conf" ]
     deploy:
       resources:
         limits:
@@ -65,4 +66,4 @@ services:
           cpus: "0.20"
           memory: "40MB"
 volumes:
-    db_data:
+    pg_db_volume:
