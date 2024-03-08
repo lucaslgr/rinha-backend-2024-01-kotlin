@@ -26,7 +26,7 @@ class MainVerticle : AbstractVerticle() {
       .setDatabase("rinha")
       .setUser("root")
       .setPassword("rinha")
-    val poolOptions = PoolOptions().setMaxSize(4)
+    val poolOptions = PoolOptions().setMaxSize(System.getenv("POOL_SIZE").toInt())
 
     dbClient = Pool.pool(vertx, pgConnectOptions, poolOptions)
 
@@ -40,7 +40,7 @@ class MainVerticle : AbstractVerticle() {
     vertx
       .createHttpServer()
       .requestHandler(router)
-      .listen(8888) { http ->
+      .listen(System.getenv("HTTP_PORT").toInt()) { http ->
         if (http.succeeded()) {
           startPromise.complete()
           println("HTTP server started on port 8888")

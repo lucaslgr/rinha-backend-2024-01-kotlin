@@ -4,10 +4,14 @@ services:
   api01:
     build: .
     hostname: api01
+    network_mode: host
     depends_on:
       - db
     environment:
-      - DB_HOST=db
+      - DB_HOST=127.0.0.1
+      - HOSTNAME=0.0.0.0
+      - HTTP_PORT=8080
+      - POOL_SIZE=5
     deploy:
       resources:
         limits:
@@ -16,46 +20,49 @@ services:
   api02:
     build: .
     hostname: api02
+    network_mode: host
     depends_on:
       - db
     environment:
-        - DB_HOST=db
+      - DB_HOST=127.0.0.1
+      - HOSTNAME=0.0.0.0
+      - HTTP_PORT=8081
+      - POOL_SIZE=5
     deploy:
       resources:
         limits:
           cpus: "0.15"
           memory: "120MB"
   db:
-    image: postgres:16
+    image: postgres:latest
+    hostname: db
+    network_mode: host
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./script.sql:/docker-entrypoint-initdb.d/script.sql
-    command: postgres -c log_min_messages=FATAL -c max_connections=50 -c shared_buffers=128MB -c fsync=off -c synchronous_commit=off -c checkpoint_timeout=1d -c full_page_writes=false
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: rinha
       POSTGRES_DB: rinha
-    ports:
-      - "5432:5432"
+    command: postgres -c log_min_messages=FATAL -c max_connections=50 -c shared_buffers=128MB -c fsync=off -c synchronous_commit=off -c checkpoint_timeout=1d -c full_page_writes=false
     deploy:
       resources:
         limits:
           cpus: "1"
-          memory: "250MB"
+          memory: "270MB"
   nginx:
-    image: nginx
+    image: nginx:latest
     hostname: nginx
+    network_mode: host
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - api01
       - api02
-    ports:
-      - "9999:9999"
     deploy:
       resources:
         limits:
           cpus: "0.20"
-          memory: "60MB"
+          memory: "40MB"
 volumes:
     db_data:
