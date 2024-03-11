@@ -20,13 +20,18 @@ class MainVerticle : AbstractVerticle() {
   private lateinit var dbClient: Pool
 
   override fun start(startPromise: Promise<Void>) {
+
+    val DB_HOST = System.getenv("DB_HOST") ?: "localhost"
+    val HTTP_PORT = (System.getenv("HTTP_PORT") ?: "8080").toInt()
+    val POOL_SIZE = (System.getenv("POOL_SIZE") ?: "5").toInt()
+
     val pgConnectOptions = PgConnectOptions()
       .setPort(5432)
-      .setHost(System.getenv("DB_HOST") ?: "localhost")
+      .setHost(DB_HOST)
       .setDatabase("rinha")
       .setUser("root")
       .setPassword("rinha")
-    val poolOptions = PoolOptions().setMaxSize(System.getenv("POOL_SIZE").toInt())
+    val poolOptions = PoolOptions().setMaxSize(POOL_SIZE)
 
     dbClient = Pool.pool(vertx, pgConnectOptions, poolOptions)
 
@@ -40,7 +45,7 @@ class MainVerticle : AbstractVerticle() {
     vertx
       .createHttpServer()
       .requestHandler(router)
-      .listen(System.getenv("HTTP_PORT").toInt()) { http ->
+      .listen(HTTP_PORT) { http ->
         if (http.succeeded()) {
           startPromise.complete()
           println("HTTP server started on port 8888")
